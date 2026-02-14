@@ -1,0 +1,36 @@
+#!/usr/bin/expect -f
+
+
+# 两个需要修改的配置
+set passwordcom "loading"
+set otp_secret "54KAQBZQTOESRCWV"
+
+set script_path [file normalize [info script]]
+set path [file dirname $script_path]
+
+puts "当前脚本完整路径：$script_path"
+set config_file "/config.ovpn"
+set auth_file "/auth.txt"
+set full_config "$path$config_file"
+set full_auth "$path$auth_file"
+
+# PID 和日志文件路径（放到 /tmp 或其他安全目录）
+set pid_file "/tmp/openvpn.pid"
+set log_file "/tmp/openvpn.log"
+
+# 获取验证码
+set code [exec /opt/homebrew/bin/oathtool --totp -b $otp_secret]
+
+# 启动 OpenVPN（注意参数分开写）
+spawn sudo /opt/homebrew/sbin/openvpn --config "$full_config" --auth-user-pass $full_auth --daemon --writepid "$pid_file" --log "$log_file"
+
+# 等待 sudo 密码提示
+expect "Password:"
+send "$passwordcom\r"
+
+# 等待 2FA 验证码提示
+expect "Enter Authenticator Code"
+send "$code\r"
+
+# 保持交互（虽然是 daemon 模式，但这行可防止脚本提前退出）
+interact
